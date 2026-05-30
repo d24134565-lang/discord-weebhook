@@ -1,0 +1,19 @@
+{
+  "name": "bot-manager",
+  "version": "1.0.0",
+  "description": "Minecraft Bot Manager",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mineflayer": "^4.35.0",
+    "socket.io": "^4.7.2",
+    "vec3": "^0.1.10"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "license": "MIT"
+}

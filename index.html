@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bot Manager</title>
+<script src="/socket.io/socket.io.js"></script>
+<script>const socket = io();</script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080a0f;
+    --bg2: #0d1018;
+    --bg3: #131720;
+    --border: #1e2330;
+    --border2: #252d3d;
+    --accent: #00d4ff;
+    --accent2: #0099bb;
+    --green: #00e676;
+    --red: #ff3d57;
+    --orange: #ffaa00;
+    --text: #c8d6e5;
+    --text2: #6b7a99;
+    --text3: #3d4a63;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .titlebar {
+    height: 48px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .titlebar-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .titlebar-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--border2); }
+  .titlebar-sub { font-size: 10px; color: var(--text3); letter-spacing: 1px; }
+  .titlebar-spacer { flex: 1; }
+
+  .online-count {
+    font-size: 10px;
+    background: rgba(0,230,118,0.1);
+    color: var(--green);
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(0,230,118,0.2);
+  }
+
+  .layout { display: flex; flex: 1; overflow: hidden; }
+
+  .sidebar {
+    width: 270px;
+    min-width: 240px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+
+  input[type="text"], input[type="password"] {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  input:focus { border-color: var(--accent2); }
+  input::placeholder { color: var(--text3); }
+
+  .btn {
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 7px 12px;
+    transition: all 0.15s;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+  }
+  .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); opacity: 1; }
+  .btn-accent { background: var(--accent); color: #000; }
+  .btn-green  { background: var(--green); color: #000; }
+  .btn-red    { background: var(--red); color: #fff; }
+  .btn-ghost  { background: var(--border2); color: var(--text); }
+
+  .global-actions {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .global-actions .row { display: flex; gap: 6px; }
+  .global-actions .btn { flex: 1; font-size: 10px; padding: 6px 8px; }
+
+  .nick-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .nick-list::-webkit-scrollbar { width: 4px; }
+  .nick-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .nick-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .nick-card:hover { border-color: var(--border2); }
+  .nick-card.selected { border-color: var(--accent); background: rgba(0,212,255,0.04); }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--border2);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.farm { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+
+  .nick-name { flex: 1; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .badge { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 700; }
+  .badge-online { background: rgba(0,230,118,0.15); color: var(--green); }
+  .badge-farm   { background: rgba(255,170,0,0.15); color: var(--orange); }
+  .badge-off    { background: rgba(107,122,153,0.1); color: var(--text3); }
+
+  .icon-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text3); font-size: 13px; padding: 2px 5px;
+    border-radius: 4px; transition: all 0.15s; line-height: 1;
+  }
+  .icon-btn:hover { background: var(--border); color: var(--text); }
+
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+  .bot-bar {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0; min-height: 56px;
+  }
+
+  .bot-bar-name { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800; color: var(--accent); }
+  .bot-bar-status { font-size: 10px; color: var(--text2); letter-spacing: 1px; }
+
+  .content-area { flex: 1; display: flex; overflow: hidden; }
+
+  .log-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
+
+  .panel-header {
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text3); }
+  .panel-badge { font-size: 9px; background: var(--border2); color: var(--text2); padding: 1px 6px; border-radius: 3px; }
+
+  .log-output {
+    flex: 1; overflow-y: auto;
+    padding: 10px 14px; font-size: 11px; line-height: 1.7;
+  }
+  .log-output::-webkit-scrollbar { width: 4px; }
+  .log-output::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .log-entry { display: flex; gap: 8px; }
+  .log-nick { color: var(--accent2); font-weight: 600; flex-shrink: 0; }
+  .log-msg { color: var(--text2); word-break: break-all; }
+  .log-msg.chat { color: var(--text); }
+
+  .chat-input-bar {
+    padding: 10px 14px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; flex-shrink: 0;
+  }
+  .chat-input-bar input { flex: 1; }
+
+  .stats-panel {
+    width: 200px; min-width: 180px;
+    display: flex; flex-direction: column; overflow-y: auto;
+  }
+  .stats-panel::-webkit-scrollbar { width: 4px; }
+  .stats-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .stat-group { border-bottom: 1px solid var(--border); padding: 12px; }
+  .stat-group-title { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+
+  .stat-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11px; }
+  .stat-key { color: var(--text2); }
+  .stat-val { color: var(--text); font-weight: 600; }
+  .stat-val.green { color: var(--green); }
+  .stat-val.red { color: var(--red); }
+  .stat-val.orange { color: var(--orange); }
+
+  .stat-actions { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+  .stat-actions .btn { width: 100%; font-size: 10px; padding: 7px; text-align: center; }
+
+  .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text3); }
+  .empty-icon { font-size: 36px; }
+  .empty-text { font-size: 11px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+
+<div class="titlebar">
+  <span class="titlebar-title">BotManager</span>
+  <div class="titlebar-dot"></div>
+  <span class="titlebar-sub" id="server-label">skimc.pl:25565</span>
+  <div class="titlebar-spacer"></div>
+  <span class="online-count" id="online-count">0 online</span>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="section-label">Serwer</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input type="text" id="server-host" placeholder="host..." style="flex:2" value="skimc.pl" />
+        <input type="text" id="server-port" placeholder="port" style="flex:1" value="25565" />
+      </div>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="server-version" placeholder="wersja..." style="flex:1" value="1.20.1" />
+        <button class="btn btn-accent" onclick="saveServer()">✓</button>
+      </div>
+    </div>
+
+    <div class="sidebar-header">
+      <div class="section-label">Nick / Hasło</div>
+      <div style="margin-bottom:6px">
+        <input type="password" id="global-pwd" placeholder="hasło domyślne..." />
+      </div>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="nick-input" placeholder="nick..." style="flex:1" />
+        <button class="btn btn-accent" onclick="addNick()">+</button>
+      </div>
+    </div>
+
+    <div class="global-actions">
+      <div class="section-label">Globalne akcje</div>
+      <div class="row">
+        <button class="btn btn-green" onclick="connectAll()">▶ ON</button>
+        <button class="btn btn-red" onclick="disconnectAll()">■ OFF</button>
+      </div>
+      <div class="row">
+        <button class="btn btn-accent" onclick="afkAll()">⏰ AFK ALL</button>
+      </div>
+    </div>
+
+    <div class="nick-list" id="nick-list"></div>
+  </div>
+
+  <div class="main">
+    <div class="bot-bar" id="bot-bar">
+      <div class="empty-state" style="flex-direction:row;gap:10px">
+        <span style="font-size:18px">👾</span>
+        <span style="font-size:11px;color:var(--text3);letter-spacing:1px">Wybierz bota z listy</span>
+      </div>
+    </div>
+
+    <div class="content-area">
+      <div class="log-panel">
+        <div class="panel-header">
+          <span class="panel-title">Log / Chat</span>
+          <span class="panel-badge" id="log-count">0</span>
+          <div style="flex:1"></div>
+          <button class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="clearLogs()">Wyczyść</button>
+        </div>
+        <div class="log-output" id="log-output">
+          <div class="empty-state" style="height:100%">
+            <span class="empty-icon">📋</span>
+            <span class="empty-text">Tu pojawią się logi</span>
+          </div>
+        </div>
+        <div class="chat-input-bar">
+          <input type="text" id="chat-input" placeholder="Wiadomość do wybranego bota..." onkeydown="if(event.key==='Enter')sendChat()" />
+          <button class="btn btn-accent" onclick="sendChat()">Wyślij</button>
+        </div>
+      </div>
+
+      <div class="stats-panel">
+        <div class="stat-group">
+          <div class="stat-group-title">Status</div>
+          <div id="stats-content"><div style="color:var(--text3);font-size:11px">Wybierz bota...</div></div>
+        </div>
+        <div class="stat-group">
+          <div class="stat-group-title">Akcje</div>
+          <div class="stat-actions" id="bot-action-btns" style="display:none">
+            <button class="btn btn-green" onclick="botAction('connect')">▶ Połącz</button>
+            <button class="btn btn-red" onclick="botAction('disconnect')">■ Rozłącz</button>
+            <button class="btn btn-accent" onclick="afkBot()">⏰ AFK</button>
+            <button class="btn btn-ghost" id="farm-btn" onclick="toggleFarm()">⚔ Start Farm</button>
+            <button class="btn btn-accent" style="background:#5865F2" onclick="socket.emit('scoreboard-report')">📊 Wyślij raport</button>
+            <button class="btn btn-ghost" style="background:var(--border2);color:var(--red)" onclick="removeNick()">✕ Usuń</button>
+          </div>
+          <div id="no-bot-msg" style="color:var(--text3);font-size:11px">Wybierz bota...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+
+let nicks = [];
+let statuses = {};
+let selectedNick = null;
+let farmState = {};
+let logCount = 0;
+
+socket.on('nicks', (data) => { nicks = data; renderNickList(); });
+socket.on('statuses', (data) => { statuses = data; renderNickList(); updateBotBar(); updateOnlineCount(); });
+socket.on('log', ({ nick, msg }) => addLog(nick, msg, false));
+socket.on('chat', ({ nick, msg }) => addLog(nick, msg, true));
+socket.on('bot-stats', ({ nick, stats }) => {
+  if (!window.botStatsData) window.botStatsData = {};
+  window.botStatsData[nick] = stats;
+  if (nick === selectedNick) updateBotBar();
+});
+socket.on('server-config', (cfg) => {
+  document.getElementById('server-host').value = cfg.host;
+  document.getElementById('server-port').value = cfg.port;
+  document.getElementById('server-version').value = cfg.version;
+  document.getElementById('server-label').textContent = cfg.host + ':' + cfg.port;
+});
+
+function updateOnlineCount() {
+  const count = Object.values(statuses).filter(s => s.online).length;
+  document.getElementById('online-count').textContent = count + ' online';
+}
+
+function renderNickList() {
+  const list = document.getElementById('nick-list');
+  list.innerHTML = '';
+  if (nicks.length === 0) {
+    list.innerHTML = '<div class="empty-state"><span class="empty-icon" style="font-size:20px">👤</span><span class="empty-text">Brak nicków</span></div>';
+    return;
+  }
+  nicks.forEach(nick => {
+    const online = statuses[nick]?.online;
+    const farm = farmState[nick];
+    const card = document.createElement('div');
+    card.className = 'nick-card' + (nick === selectedNick ? ' selected' : '');
+    card.onclick = () => selectNick(nick);
+    const dotClass = farm ? 'farm' : online ? 'online' : '';
+    const badge = farm ? '<span class="badge badge-farm">FARM</span>' : online ? '<span class="badge badge-online">ON</span>' : '<span class="badge badge-off">OFF</span>';
+    card.innerHTML = `
+      <div class="status-dot ${dotClass}"></div>
+      <span class="nick-name">${nick}</span>
+      <div>${badge}</div>
+      <button class="icon-btn" onclick="event.stopPropagation();removeNickByName('${nick}')">✕</button>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function selectNick(nick) { selectedNick = nick; renderNickList(); updateBotBar(); }
+
+function updateBotBar() {
+  const bar = document.getElementById('bot-bar');
+  const statsContent = document.getElementById('stats-content');
+  const actionBtns = document.getElementById('bot-action-btns');
+  const noBotMsg = document.getElementById('no-bot-msg');
+  const farmBtn = document.getElementById('farm-btn');
+
+  if (!selectedNick) {
+    bar.innerHTML = `<div class="empty-state" style="flex-direction:row;gap:10px"><span style="font-size:18px">👾</span><span style="font-size:11px;color:var(--text3)">Wybierz bota z listy</span></div>`;
+    statsContent.innerHTML = '<div style="color:var(--text3);font-size:11px">Wybierz bota...</div>';
+    actionBtns.style.display = 'none';
+    noBotMsg.style.display = 'block';
+    return;
+  }
+
+  const online = statuses[selectedNick]?.online;
+  const farm = farmState[selectedNick];
+  const statusColor = farm ? 'orange' : online ? 'green' : 'red';
+  const statusText = farm ? 'FARMING' : online ? 'ONLINE' : 'OFFLINE';
+
+  bar.innerHTML = `
+    <div class="status-dot ${farm ? 'farm' : online ? 'online' : ''}" style="width:10px;height:10px"></div>
+    <div>
+      <div class="bot-bar-name">${selectedNick}</div>
+      <div class="bot-bar-status">${statusText}</div>
+    </div>
+  `;
+
+  const stats = (window.botStatsData || {})[selectedNick] || {};
+  statsContent.innerHTML = `
+    <div class="stat-row"><span class="stat-key">Nick</span><span class="stat-val">${selectedNick}</span></div>
+    <div class="stat-row"><span class="stat-key">Status</span><span class="stat-val ${statusColor}">${statusText}</span></div>
+    <div class="stat-row"><span class="stat-key">Farm</span><span class="stat-val ${farm ? 'orange' : ''}">${farm ? 'AKTYWNY' : 'OFF'}</span></div>
+    <div class="stat-row"><span class="stat-key">Kasa</span><span class="stat-val green">${stats.kasa || '?'}</span></div>
+    <div class="stat-row"><span class="stat-key">Czas gry</span><span class="stat-val">${stats.czas || '?'}</span></div>
+  `;
+
+  actionBtns.style.display = 'flex';
+  noBotMsg.style.display = 'none';
+  if (farmBtn) farmBtn.textContent = farm ? '✕ Stop Farm' : '⚔ Start Farm';
+}
+
+function botAction(action) {
+  if (!selectedNick) return;
+  const pwd = document.getElementById('global-pwd').value;
+  if (action === 'connect') socket.emit('connect-bot', { nick: selectedNick, password: pwd });
+  else if (action === 'disconnect') socket.emit('disconnect-bot', selectedNick);
+}
+
+function toggleFarm() {
+  if (!selectedNick) return;
+  if (farmState[selectedNick]) socket.emit('stop-farm', selectedNick);
+  else socket.emit('start-farm', selectedNick);
+  farmState[selectedNick] = !farmState[selectedNick];
+  updateBotBar();
+}
+
+function afkBot() { if (selectedNick) socket.emit('afk-warp', selectedNick); }
+function afkAll() { socket.emit('afk-warp-all'); }
+function connectAll() { socket.emit('connect-all', document.getElementById('global-pwd').value); }
+function disconnectAll() { socket.emit('disconnect-all'); }
+
+function addNick() {
+  const input = document.getElementById('nick-input');
+  const nick = input.value.trim();
+  if (!nick) return;
+  socket.emit('add-nick', nick);
+  input.value = '';
+}
+
+function removeNick() { if (selectedNick) removeNickByName(selectedNick); }
+function removeNickByName(nick) {
+  if (nick === selectedNick) { selectedNick = null; updateBotBar(); }
+  socket.emit('remove-nick', nick);
+}
+
+function sendChat() {
+  if (!selectedNick) return;
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  socket.emit('send-chat', { nick: selectedNick, msg });
+  input.value = '';
+}
+
+function addLog(nick, msg, isChat) {
+  logCount++;
+  const out = document.getElementById('log-output');
+  if (out.querySelector('.empty-state')) out.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="log-nick">[${nick}]</span><span class="log-msg ${isChat ? 'chat' : ''}">${escapeHtml(msg)}</span>`;
+  out.appendChild(div);
+  out.scrollTop = out.scrollHeight;
+  document.getElementById('log-count').textContent = logCount;
+}
+
+function clearLogs() {
+  logCount = 0;
+  document.getElementById('log-output').innerHTML = `<div class="empty-state" style="height:100%"><span class="empty-icon">📋</span><span class="empty-text">Tu pojawią się logi</span></div>`;
+  document.getElementById('log-count').textContent = '0';
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function saveServer() {
+  const host = document.getElementById('server-host').value.trim();
+  const port = parseInt(document.getElementById('server-port').value.trim()) || 25565;
+  const version = document.getElementById('server-version').value.trim() || '1.20.1';
+  if (!host) return;
+  socket.emit('set-server', { host, port, version });
+  document.getElementById('server-label').textContent = host + ':' + port;
+}
+
+document.getElementById('nick-input').addEventListener('keydown', e => { if (e.key === 'Enter') addNick(); });
+
+// Init - pobierz dane od main procesu
+socket.emit('get-nicks');
+socket.emit('get-server');
+socket.emit('get-statuses');
+</script>
+</body>
+</html>
